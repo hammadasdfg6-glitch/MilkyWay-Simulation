@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2303050c'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23ffbe66'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.5' transform='rotate(-24 16 16)' fill='none' stroke='%235cb8ff' stroke-width='2'/%3E%3C/svg%3E"
+    >
+    <title>Milky Way Observatory — 3D Astrophysics Simulation</title>
+    <link rel="stylesheet" href="/src/styles/observatory.css">
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="observatory-stage">
+      <canvas
+        id="galaxy-canvas"
+        class="galaxy-canvas"
+        aria-label="Interactive 3D Milky Way galaxy simulation"
+      ></canvas>
+
+      <div id="hud-root" class="hud-root">
+        <div class="hud-shell" data-hud-shell>
+          <div
+            id="landmark-overlay"
+            class="landmark-overlay"
+            aria-label="3D galactic landmark markers"
+          ></div>
+
+          <header class="hud-header glass-panel" data-hud-chrome>
+            <div class="header-title-row">
+              <h1 class="observatory-title">Milky Way Observatory</h1>
+              <span class="galaxy-tag">SBbc</span>
+            </div>
+
+            <dl class="telemetry-grid" aria-label="Live observatory telemetry">
+              <div class="telemetry-cell">
+                <dt>FPS</dt>
+                <dd data-telemetry="fps">--</dd>
+              </div>
+              <div class="telemetry-cell">
+                <dt>Stars</dt>
+                <dd data-telemetry="stars">0.00M</dd>
+              </div>
+              <div class="telemetry-cell">
+                <dt>Clock</dt>
+                <dd data-telemetry="clock">+0.0 Myr</dd>
+              </div>
+              <div class="telemetry-cell">
+                <dt>Gal R</dt>
+                <dd data-telemetry="radius">-- kpc</dd>
+              </div>
+              <div class="telemetry-cell">
+                <dt>Gal Z</dt>
+                <dd data-telemetry="height">-- kpc</dd>
+              </div>
+              <div class="telemetry-cell">
+                <dt>Sol Dist</dt>
+                <dd data-telemetry="sol-dist">-- ly</dd>
+              </div>
+            </dl>
+
+            <div class="streaming-row" data-streaming-container>
+              <div class="streaming-meta">
+                <span class="streaming-status" data-telemetry="loading-status">Streaming star catalog…</span>
+                <span class="backend-badge" data-telemetry="backend">WebGL2</span>
+              </div>
+              <progress
+                class="loading-progress"
+                data-telemetry="progress"
+                max="1"
+                value="0"
+                aria-label="Star catalog loading progress"
+              ></progress>
+            </div>
+          </header>
+
+          <article
+            class="landmark-card glass-panel"
+            data-landmark-card
+            data-hud-chrome
+            hidden
+            aria-label="Selected galactic landmark details"
+          >
+            <div class="card-header">
+              <span class="card-category" data-card-category></span>
+              <button
+                type="button"
+                class="ghost-btn compact-btn"
+                data-action="close-card"
+                aria-label="Dismiss landmark details"
+              >Dismiss</button>
+            </div>
+            <h2 class="card-title" data-card-title></h2>
+            <p class="card-classification" data-card-classification></p>
+            <dl class="card-metrics">
+              <div class="card-metric">
+                <dt>Sol Distance</dt>
+                <dd data-card-distance></dd>
+              </div>
+              <div class="card-metric">
+                <dt>Galactocentric (X, Y, Z)</dt>
+                <dd data-card-coords></dd>
+              </div>
+            </dl>
+            <p class="card-description" data-card-description></p>
+            <div class="card-actions">
+              <button type="button" class="primary-btn compact-btn" data-action="refocus-landmark">
+                Fly To Landmark
+              </button>
+            </div>
+          </article>
+
+          <nav
+            class="preset-nav glass-panel"
+            data-hud-chrome
+            aria-label="Camera presets and observatory actions"
+          >
+            <div class="preset-toolbar" role="toolbar" aria-label="Quick camera presets">
+              <button type="button" class="preset-btn" data-preset="overview">
+                <span>Overview</span>
+                <kbd>1</kbd>
+              </button>
+              <button type="button" class="preset-btn" data-preset="oblique">
+                <span>Oblique</span>
+                <kbd>2</kbd>
+              </button>
+              <button type="button" class="preset-btn" data-preset="edge">
+                <span>Edge-On Rift</span>
+                <kbd>3</kbd>
+              </button>
+              <button type="button" class="preset-btn" data-preset="sol">
+                <span>Solar System</span>
+                <kbd>4</kbd>
+              </button>
+              <button type="button" class="preset-btn" data-preset="core">
+                <span>Sgr A* Core</span>
+                <kbd>5</kbd>
+              </button>
+            </div>
+
+            <div class="toolbar-divider" aria-hidden="true"></div>
+
+            <div class="toolbar-actions">
+              <button type="button" class="ghost-btn" data-action="reset-view">Reset</button>
+              <button
+                type="button"
+                class="ghost-btn"
+                popovertarget="spectral-legend-popover"
+              >Legend</button>
+              <button type="button" class="ghost-btn" data-action="open-guide">
+                <span>Guide</span>
+                <kbd>?</kbd>
+              </button>
+              <button type="button" class="ghost-btn" data-action="toggle-hud">
+                <span>Hide HUD</span>
+                <kbd>H</kbd>
+              </button>
+              <button
+                type="button"
+                class="ghost-btn"
+                data-action="toggle-drawer"
+                aria-expanded="true"
+                aria-controls="observatory-drawer"
+              >Controls</button>
+            </div>
+          </nav>
+
+          <button
+            type="button"
+            class="hud-restore-pill glass-panel"
+            data-action="restore-hud"
+            hidden
+          >
+            <span>Show HUD</span>
+            <kbd>H</kbd>
+          </button>
+
+          <aside
+            id="observatory-drawer"
+            class="control-drawer glass-panel"
+            data-hud-chrome
+            aria-label="Observatory simulation controls"
+          >
+            <div class="drawer-header">
+              <span class="drawer-title">Observatory Controls</span>
+              <button
+                type="button"
+                class="ghost-btn compact-btn"
+                data-action="toggle-drawer"
+                aria-label="Collapse observatory controls drawer"
+              >Collapse</button>
+            </div>
+
+            <div class="drawer-scroll">
+              <details class="control-group" open>
+                <summary class="control-summary">
+                  <span class="summary-label">Simulation Scale</span>
+                  <span class="summary-indicator" aria-hidden="true"></span>
+                </summary>
+                <div class="control-body">
+                  <fieldset class="segmented-fieldset">
+                    <legend class="field-legend">Star Count Tier</legend>
+                    <div class="tier-grid">
+                      <label class="segment-option">
+                        <input type="radio" name="star-tier" value="500000">
+                        <span>500K</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="star-tier" value="1000000">
+                        <span>1M</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="star-tier" value="2000000" checked>
+                        <span>2M</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="star-tier" value="3500000">
+                        <span>3.5M</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="star-tier" value="5000000">
+                        <span>5M</span>
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <div class="slider-control">
+                    <div class="slider-header">
+                      <label for="slider-timescale">Time Warp</label>
+                      <output for="slider-timescale" data-output="timescale">1.5 Myr/s</output>
+                    </div>
+                    <input
+                      id="slider-timescale"
+                      type="range"
+                      min="0"
+                      max="15"
+                      step="0.1"
+                      value="1.5"
+                      data-setting="timeScaleMyrPerSec"
+                    >
+                  </div>
+
+                  <div class="playback-row">
+                    <button
+                      type="button"
+                      class="primary-btn playback-btn"
+                      data-action="toggle-pause"
+                      aria-pressed="false"
+                    >
+                      <span data-pause-label>Pause Simulation</span>
+                      <kbd>Space</kbd>
+                    </button>
+                  </div>
+
+                  <div class="switch-list">
+                    <label class="switch-row" for="switch-auto-orbit">
+                      <span>Auto-Orbit Camera</span>
+                      <input
+                        id="switch-auto-orbit"
+                        type="checkbox"
+                        switch
+                        data-setting="autoOrbit"
+                      >
+                    </label>
+                    <label class="switch-row" for="switch-follow-sol">
+                      <span>Follow Sol Orbit</span>
+                      <input
+                        id="switch-follow-sol"
+                        type="checkbox"
+                        switch
+                        data-setting="followSol"
+                      >
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <details class="control-group" open>
+                <summary class="control-summary">
+                  <span class="summary-label">Spectral Wavelength</span>
+                  <span class="summary-indicator" aria-hidden="true"></span>
+                </summary>
+                <div class="control-body">
+                  <fieldset class="segmented-fieldset">
+                    <legend class="field-legend">Observatory Bandpass</legend>
+                    <div class="wavelength-grid">
+                      <label class="segment-option">
+                        <input type="radio" name="wavelength" value="optical" checked>
+                        <span>Optical</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="wavelength" value="infrared">
+                        <span>Near-IR (JWST)</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="wavelength" value="ultraviolet">
+                        <span>Ultraviolet</span>
+                      </label>
+                      <label class="segment-option">
+                        <input type="radio" name="wavelength" value="population">
+                        <span>Population Map</span>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <p class="bandpass-note" data-wavelength-note>
+                    Visible photospheres with Great Rift interstellar dust reddening.
+                  </p>
+                </div>
+              </details>
+
+              <details class="control-group" open>
+                <summary class="control-summary">
+                  <span class="summary-label">Optics &amp; ISM</span>
+                  <span class="summary-indicator" aria-hidden="true"></span>
+                </summary>
+                <div class="control-body">
+                  <div class="optics-grid">
+                    <div class="slider-control">
+                      <div class="slider-header">
+                        <label for="slider-exposure">Exposure</label>
+                        <output for="slider-exposure" data-output="exposure">1.15 EV</output>
+                      </div>
+                      <input
+                        id="slider-exposure"
+                        type="range"
+                        min="0.3"
+                        max="3.0"
+                        step="0.05"
+                        value="1.15"
+                        data-setting="exposure"
+                      >
+                    </div>
+
+                    <div class="slider-control">
+                      <div class="slider-header">
+                        <label for="slider-bloom">Bloom Intensity</label>
+                        <output for="slider-bloom" data-output="bloom">75%</output>
+                      </div>
+                      <input
+                        id="slider-bloom"
+                        type="range"
+                        min="0"
+                        max="2.0"
+                        step="0.05"
+                        value="0.75"
+                        data-setting="bloomIntensity"
+                      >
+                    </div>
+
+                    <div class="slider-control">
+                      <div class="slider-header">
+                        <label for="slider-dust">Dust Opacity</label>
+                        <output for="slider-dust" data-output="dust">100%</output>
+                      </div>
+                      <input
+                        id="slider-dust"
+                        type="range"
+                        min="0"
+                        max="2.5"
+                        step="0.05"
+                        value="1.0"
+                        data-setting="dustOpacity"
+                      >
+                    </div>
+
+                    <div class="slider-control">
+                      <div class="slider-header">
+                        <label for="slider-nebula">H-II Nebula Glow</label>
+                        <output for="slider-nebula" data-output="nebula">85%</output>
+                      </div>
+                      <input
+                        id="slider-nebula"
+                        type="range"
+                        min="0"
+                        max="2.5"
+                        step="0.05"
+                        value="0.85"
+                        data-setting="nebulaIntensity"
+                      >
+                    </div>
+                  </div>
+
+                  <div class="switch-list">
+                    <label class="switch-row" for="switch-landmarks">
+                      <span>Landmark Markers</span>
+                      <input
+                        id="switch-landmarks"
+                        type="checkbox"
+                        switch
+                        checked
+                        data-setting="showLandmarks"
+                      >
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <details class="control-group" open>
+                <summary class="control-summary">
+                  <span class="summary-label">Galactic Landmarks</span>
+                  <span class="summary-indicator" aria-hidden="true"></span>
+                </summary>
+                <div class="control-body">
+                  <search class="landmark-search">
+                    <label class="visually-hidden" for="landmark-filter">
+                      Filter galactic landmarks
+                    </label>
+                    <input
+                      id="landmark-filter"
+                      type="search"
+                      placeholder="Filter nebulae, clusters, core…"
+                      autocomplete="off"
+                      data-landmark-search
+                    >
+                  </search>
+                  <ul class="landmark-list" data-landmark-list aria-label="Galactic landmarks directory"></ul>
+                </div>
+              </details>
+            </div>
+          </aside>
+
+          <section
+            id="spectral-legend-popover"
+            popover="auto"
+            class="legend-popover glass-panel"
+            aria-labelledby="legend-popover-title"
+          >
+            <div class="popover-header">
+              <h2 id="legend-popover-title">Spectral &amp; Population Key</h2>
+              <button
+                type="button"
+                class="ghost-btn compact-btn"
+                popovertarget="spectral-legend-popover"
+                popovertargetaction="hide"
+              >Close</button>
+            </div>
+
+            <div class="legend-section">
+              <h3>Harvard Spectral Photospheres</h3>
+              <ul class="legend-swatches">
+                <li><span class="swatch swatch-o"></span>O/B Hot Supergiants (12,000–40,000 K)</li>
+                <li><span class="swatch swatch-a"></span>A/F Young Disk Stars (6,200–10,000 K)</li>
+                <li><span class="swatch swatch-g"></span>G Solar-Type Dwarfs (5,200–6,000 K)</li>
+                <li><span class="swatch swatch-km"></span>K/M Bulge Giants &amp; Red Dwarfs (2,400–4,800 K)</li>
+              </ul>
+            </div>
+
+            <div class="legend-section">
+              <h3>Population Map Palette</h3>
+              <ul class="legend-swatches">
+                <li><span class="swatch swatch-pop0"></span>Pop 0 · Galactic Bulge &amp; Triaxial Bar</li>
+                <li><span class="swatch swatch-pop1"></span>Pop 1 · Spiral Arms &amp; OB Associations</li>
+                <li><span class="swatch swatch-pop2"></span>Pop 2 · Thin Exponential Disk</li>
+                <li><span class="swatch swatch-pop3"></span>Pop 3 · Asymmetric-Drift Thick Disk</li>
+                <li><span class="swatch swatch-pop4"></span>Pop 4 · Halo &amp; Globular Clusters</li>
+              </ul>
+            </div>
+          </section>
+
+          <dialog
+            id="astrophysics-dialog"
+            class="help-dialog glass-panel"
+            closedby="any"
+            aria-labelledby="astrophysics-dialog-title"
+          >
+            <form method="dialog" class="dialog-header">
+              <h2 id="astrophysics-dialog-title">Milky Way Astrophysics &amp; Navigation</h2>
+              <button type="submit" class="ghost-btn compact-btn">Close</button>
+            </form>
+
+            <div class="dialog-body">
+              <section class="dialog-section">
+                <h3>SBbc Barred Spiral Architecture</h3>
+                <p>
+                  This real-time WebGL2 HDR simulation models up to 5 million stars across five
+                  distinct galactic populations: a triaxial boxy/peanut bulge and 27° galactic bar,
+                  four logarithmic spiral arms plus the Orion-Cygnus Spur housing Sol at
+                  R = 8.178 kpc, an exponential flaring thin disk, an older thick disk, and a
+                  spheroidal halo studded with globular clusters.
+                </p>
+              </section>
+
+              <section class="dialog-section">
+                <h3>Ray-Marched Interstellar Dust &amp; Spectroscopy</h3>
+                <p>
+                  Each star integrates line-of-sight optical depth through a co-rotating 1024×1024
+                  midplane dust map. In Optical mode, light passing behind the Great Rift undergoes
+                  wavelength-dependent extinction and reddening; switching to Near-IR (JWST) pierces
+                  the dust lanes to expose the hidden inner bar, while Ultraviolet isolates hot
+                  O/B stellar nurseries.
+                </p>
+              </section>
+
+              <section class="dialog-section">
+                <h3>Camera &amp; Keyboard Shortcuts</h3>
+                <dl class="shortcut-grid">
+                  <div><dt>Left Drag</dt><dd>Orbit galactic camera</dd></div>
+                  <div><dt>Right / Shift Drag</dt><dd>Pan focus target</dd></div>
+                  <div><dt>Scroll / Pinch</dt><dd>Zoom (1.6 ly to 120 kpc)</dd></div>
+                  <div><dt>1 – 5</dt><dd>Quick camera presets</dd></div>
+                  <div><dt>Space</dt><dd>Play / Pause galactic rotation</dd></div>
+                  <div><dt>H</dt><dd>Hide / Restore observatory HUD</dd></div>
+                  <div><dt>?</dt><dd>Open this Astrophysics Guide</dd></div>
+                  <div><dt>Esc</dt><dd>Close open modal or popover</dd></div>
+                </dl>
+              </section>
+            </div>
+          </dialog>
+
+          <section class="error-banner glass-panel" data-error-banner role="alert" hidden>
+            <h2>Observatory Renderer Unavailable</h2>
+            <p data-error-message></p>
+          </section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
